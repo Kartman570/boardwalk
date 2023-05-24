@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Boardwalk</title><style>
+body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem;background:#f5f6f8;color:#202636}
+a{color:#315cb8}input,textarea,button,select{font:inherit;padding:.4rem}button{cursor:pointer}
+.columns{display:flex;gap:1rem;align-items:flex-start}.column{background:#e5e9f0;padding:1rem;flex:1}
+.card{background:white;padding:1rem;margin:.7rem 0;border-radius:.4rem}nav{display:flex;gap:1rem}
+</style></head><body><nav><a href="/">Boardwalk</a>
+{% if user.is_authenticated %}<span>{{ user.username }}</span>
+<form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Sign out</button></form>{% endif %}
+</nav>{% block content %}{% endblock %}</body></html>
