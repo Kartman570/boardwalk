@@ -14,3 +14,13 @@ class Column(models.Model):
 
     class Meta:
         ordering = ["position", "id"]
+
+
+class Card(models.Model):
+    column = models.ForeignKey(Column, related_name="cards", on_delete=models.CASCADE)
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
