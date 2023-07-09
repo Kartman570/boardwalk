@@ -1,0 +1,4 @@
+{% extends 'boards/base.html' %}{% block content %}
+<h1>Your boards</h1><ul>{% for board in boards %}<li><a href="{% url 'board' board.id %}">{{ board.name }}</a></li>{% empty %}<li>No boards yet.</li>{% endfor %}</ul>
+<form method="post">{% csrf_token %}<input name="name" maxlength="120" required placeholder="Board name"><button>Create board</button></form>
+{% endblock %}
