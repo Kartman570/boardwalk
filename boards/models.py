@@ -24,3 +24,12 @@ class Card(models.Model):
 
     class Meta:
         ordering = ["position", "id"]
+
+
+class Membership(models.Model):
+    board = models.ForeignKey(Board, related_name="memberships", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=[("editor", "Editor"), ("viewer", "Viewer")])
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["board", "user"], name="unique_membership")]
