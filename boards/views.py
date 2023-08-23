@@ -6,9 +6,9 @@ def health(request):
 
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
-from .models import Board
+from .access import get_board, visible_boards
 from .services import create_board
 
 
@@ -21,10 +21,10 @@ def boards(request):
         except ValueError as error:
             return JsonResponse({"error": str(error)}, status=400)
         return redirect("board", board_id=board.id)
-    return render(request, "boards/index.html", {"boards": Board.objects.filter(owner=request.user)})
+    return render(request, "boards/index.html", {"boards": visible_boards(request.user)})
 
 
 @login_required
 def board(request, board_id):
-    item = get_object_or_404(Board, id=board_id, owner=request.user)
+    item = get_board(request.user, board_id)
     return render(request, "boards/board.html", {"board": item})
