@@ -17,6 +17,7 @@ class Column(models.Model):
 
 
 class Card(models.Model):
+    revision = models.PositiveIntegerField(default=0)
     column = models.ForeignKey(Column, related_name="cards", on_delete=models.CASCADE)
     title = models.CharField(max_length=160)
     description = models.TextField(blank=True)
