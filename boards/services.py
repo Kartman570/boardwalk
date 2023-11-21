@@ -20,6 +20,8 @@ def add_card(column, title, description=""):
     if not title or len(title) > 160 or len(description) > 10000:
         raise ValueError("Card title or description has an invalid length")
     Board.objects.select_for_update().get(id=column.board_id)
+    if column.limit and column.cards.count() >= column.limit:
+        raise ValueError("Column has reached its card limit")
     return Card.objects.create(column=column, title=title, description=description,
                                position=column.cards.count())
 
@@ -43,6 +45,8 @@ def move_card(card, destination, position, revision):
     target = list(destination.cards.exclude(id=card.id).order_by("position", "id"))
     if position > len(target):
         raise ValueError("Position is beyond the end of the column")
+    if destination.limit and len(target) >= destination.limit:
+        raise ValueError("Column has reached its card limit")
     target.insert(position, card)
     for index, item in enumerate(target):
         item.position = index

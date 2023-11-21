@@ -69,3 +69,17 @@ def card_move(request, data, card_id):
     except Conflict as error:
         return JsonResponse({"error": str(error)}, status=409)
     return JsonResponse({"id": card.id, "column_id": card.column_id, "revision": card.revision})
+
+
+@login_required
+@require_POST
+@json_input
+def column_limit(request, data, column_id):
+    column = get_object_or_404(Column, id=column_id)
+    get_board(request.user, column.board_id, write=True)
+    limit = data.get("limit")
+    if type(limit) is not int or limit < 0:
+        raise ValueError("Limit must be a nonnegative integer")
+    column.limit = limit
+    column.save(update_fields=["limit"])
+    return JsonResponse({"id": column.id, "limit": limit})

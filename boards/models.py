@@ -8,6 +8,7 @@ class Board(models.Model):
 
 
 class Column(models.Model):
+    limit = models.PositiveIntegerField(default=0)
     board = models.ForeignKey(Board, related_name="columns", on_delete=models.CASCADE)
     name = models.CharField(max_length=80)
     position = models.PositiveIntegerField(default=0)
