@@ -66,3 +66,47 @@ class AccessTests(TestCase):
         self.assertEqual(self.client.post(url, {"username": "outsider", "role": "viewer"},
                                          content_type="application/json").status_code, 200)
         self.assertEqual(self.board.memberships.count(), 3)
+
+
+class OrderingTests(TestCase):
+    def setUp(self):
+        from .services import add_card
+        self.user = get_user_model().objects.create_user("owner")
+        self.board = create_board(self.user, "Work")
+        self.source, self.target = list(self.board.columns.all())[:2]
+        self.first = add_card(self.source, "First")
+        self.second = add_card(self.source, "Second")
+        self.client.force_login(self.user)
+
+    def move(self, card, column, position=0, revision=0):
+        return self.client.post("/api/cards/%s/move/" % card.id,
+                                {"column_id": column.id, "position": position,
+                                 "revision": revision}, content_type="application/json")
+
+    def test_move_compacts_both_columns(self):
+        self.assertEqual(self.move(self.first, self.target).status_code, 200)
+        self.second.refresh_from_db()
+        self.assertEqual(self.second.position, 0)
+        self.assertEqual(self.target.cards.count(), 1)
+
+    def test_stale_revision_is_conflict(self):
+        self.assertEqual(self.move(self.first, self.target).status_code, 200)
+        self.assertEqual(self.move(self.first, self.source).status_code, 409)
+
+    def test_wip_limit_rolls_back(self):
+        from .services import add_card
+        self.target.limit = 1
+        self.target.save()
+        add_card(self.target, "Already here")
+        self.assertEqual(self.move(self.first, self.target).status_code, 400)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.column_id, self.source.id)
+
+    def test_cross_board_move_rejected(self):
+        other = create_board(self.user, "Other").columns.first()
+        self.assertEqual(self.move(self.first, other).status_code, 400)
+        self.assertEqual(other.cards.count(), 0)
+
+    def test_reorder(self):
+        self.assertEqual(self.move(self.second, self.source).status_code, 200)
+        self.assertEqual(list(self.source.cards.values_list("title", flat=True)), ["Second", "First"])
