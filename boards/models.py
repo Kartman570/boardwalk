@@ -8,6 +8,7 @@ class Board(models.Model):
 
 
 class Column(models.Model):
+    limit = models.PositiveIntegerField(default=0)
     board = models.ForeignKey(Board, related_name="columns", on_delete=models.CASCADE)
     name = models.CharField(max_length=80)
     position = models.PositiveIntegerField(default=0)
@@ -17,6 +18,7 @@ class Column(models.Model):
 
 
 class Card(models.Model):
+    revision = models.PositiveIntegerField(default=0)
     column = models.ForeignKey(Column, related_name="cards", on_delete=models.CASCADE)
     title = models.CharField(max_length=160)
     description = models.TextField(blank=True)

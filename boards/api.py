@@ -53,3 +53,33 @@ def member_set(request, data, board_id):
     else:
         Membership.objects.update_or_create(board=board, user=user, defaults={"role": role})
     return JsonResponse({"username": user.username, "role": role})
+
+
+@login_required
+@require_POST
+@json_input
+def card_move(request, data, card_id):
+    from .models import Card
+    from .services import Conflict, move_card
+    card = get_object_or_404(Card.objects.select_related("column"), id=card_id)
+    get_board(request.user, card.column.board_id, write=True)
+    destination = get_object_or_404(Column, id=data.get("column_id"))
+    try:
+        card = move_card(card, destination, data.get("position", 0), data.get("revision"))
+    except Conflict as error:
+        return JsonResponse({"error": str(error)}, status=409)
+    return JsonResponse({"id": card.id, "column_id": card.column_id, "revision": card.revision})
+
+
+@login_required
+@require_POST
+@json_input
+def column_limit(request, data, column_id):
+    column = get_object_or_404(Column, id=column_id)
+    get_board(request.user, column.board_id, write=True)
+    limit = data.get("limit")
+    if type(limit) is not int or limit < 0:
+        raise ValueError("Limit must be a nonnegative integer")
+    column.limit = limit
+    column.save(update_fields=["limit"])
+    return JsonResponse({"id": column.id, "limit": limit})
