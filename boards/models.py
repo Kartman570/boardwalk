@@ -35,3 +35,12 @@ class Membership(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["board", "user"], name="unique_membership")]
+
+
+class Comment(models.Model):
+    card = models.ForeignKey(Card, related_name="comments", on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    body = models.TextField()
+
+    class Meta:
+        ordering = ["id"]

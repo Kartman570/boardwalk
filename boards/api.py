@@ -83,3 +83,17 @@ def column_limit(request, data, column_id):
     column.limit = limit
     column.save(update_fields=["limit"])
     return JsonResponse({"id": column.id, "limit": limit})
+
+
+@login_required
+@require_POST
+@json_input
+def comment_add(request, data, card_id):
+    from .models import Card, Comment
+    card = get_object_or_404(Card.objects.select_related("column"), id=card_id)
+    get_board(request.user, card.column.board_id, write=True)
+    body = data.get("body", "")
+    if not isinstance(body, str) or not body.strip() or len(body) > 4000:
+        raise ValueError("Comment must contain 1 to 4000 characters")
+    comment = Comment.objects.create(card=card, author=request.user, body=body.strip())
+    return JsonResponse({"id": comment.id, "body": comment.body}, status=201)
