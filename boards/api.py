@@ -2,9 +2,10 @@ import json
 from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
-from .models import Column
+from .models import Activity, Column
 from .services import add_card
 from .access import get_board
 
@@ -16,7 +17,8 @@ def json_input(view):
             data = json.loads(request.body or b"{}")
             if not isinstance(data, dict):
                 raise ValueError("Expected a JSON object")
-            return view(request, data, *args, **kwargs)
+            with transaction.atomic():
+                return view(request, data, *args, **kwargs)
         except (ValueError, TypeError, KeyError) as error:
             return JsonResponse({"error": str(error)}, status=400)
     return wrapped
@@ -29,6 +31,8 @@ def card_create(request, data, column_id):
     column = get_object_or_404(Column, id=column_id)
     get_board(request.user, column.board_id, write=True)
     card = add_card(column, data.get("title", ""), data.get("description", ""))
+    Activity.objects.create(board=column.board, actor=request.user,
+                            action="card added", detail=card.title)
     return JsonResponse({"id": card.id, "title": card.title}, status=201)
 
 
@@ -68,6 +72,8 @@ def card_move(request, data, card_id):
         card = move_card(card, destination, data.get("position", 0), data.get("revision"))
     except Conflict as error:
         return JsonResponse({"error": str(error)}, status=409)
+    Activity.objects.create(board=destination.board, actor=request.user,
+                            action="card moved", detail=card.title + " -> " + destination.name)
     return JsonResponse({"id": card.id, "column_id": card.column_id, "revision": card.revision})
 
 
@@ -96,4 +102,13 @@ def comment_add(request, data, card_id):
     if not isinstance(body, str) or not body.strip() or len(body) > 4000:
         raise ValueError("Comment must contain 1 to 4000 characters")
     comment = Comment.objects.create(card=card, author=request.user, body=body.strip())
+    Activity.objects.create(board=card.column.board, actor=request.user,
+                            action="comment added", detail=card.title)
     return JsonResponse({"id": comment.id, "body": comment.body}, status=201)
+
+
+@login_required
+def activity(request, board_id):
+    board = get_board(request.user, board_id)
+    entries = list(board.activity.values("id", "actor__username", "action", "detail")[:100])
+    return JsonResponse({"activity": entries})

@@ -1,7 +1,8 @@
 from django.urls import include, path
 from boards import api, views
 
-urlpatterns = [path("api/cards/<int:card_id>/comments/", api.comment_add),
+urlpatterns = [path("api/boards/<int:board_id>/activity/", api.activity),
+               path("api/cards/<int:card_id>/comments/", api.comment_add),
                path("api/columns/<int:column_id>/limit/", api.column_limit),
                path("api/cards/<int:card_id>/move/", api.card_move),
                path("api/boards/<int:board_id>/members/", api.member_set),

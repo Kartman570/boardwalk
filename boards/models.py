@@ -44,3 +44,13 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+
+class Activity(models.Model):
+    board = models.ForeignKey(Board, related_name="activity", on_delete=models.CASCADE)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    action = models.CharField(max_length=80)
+    detail = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-id"]
