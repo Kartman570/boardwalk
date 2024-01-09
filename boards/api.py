@@ -112,3 +112,20 @@ def activity(request, board_id):
     board = get_board(request.user, board_id)
     entries = list(board.activity.values("id", "actor__username", "action", "detail")[:100])
     return JsonResponse({"activity": entries})
+
+
+@login_required
+@require_POST
+@json_input
+def card_labels(request, data, card_id):
+    from .models import Card, Label
+    card = get_object_or_404(Card.objects.select_related("column"), id=card_id)
+    board = get_board(request.user, card.column.board_id, write=True)
+    names = data.get("labels", [])
+    if (not isinstance(names, list) or len(names) > 12
+            or any(not isinstance(name, str) or not name.strip() or len(name) > 40 for name in names)):
+        raise ValueError("Use up to twelve nonempty label names of at most forty characters")
+    labels = [Label.objects.get_or_create(board=board, name=name.strip())[0] for name in names]
+    card.labels.set(labels)
+    Activity.objects.create(board=board, actor=request.user, action="labels changed", detail=card.title)
+    return JsonResponse({"labels": sorted({label.name for label in labels})})
