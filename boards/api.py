@@ -129,3 +129,39 @@ def card_labels(request, data, card_id):
     card.labels.set(labels)
     Activity.objects.create(board=board, actor=request.user, action="labels changed", detail=card.title)
     return JsonResponse({"labels": sorted({label.name for label in labels})})
+
+
+@login_required
+@require_POST
+@json_input
+def card_update(request, data, card_id):
+    from .models import Card
+    from .services import Conflict, update_card
+    card = get_object_or_404(Card.objects.select_related("column"), id=card_id)
+    board = get_board(request.user, card.column.board_id, write=True)
+    try:
+        card = update_card(card, data)
+    except Conflict as error:
+        return JsonResponse({"error": str(error)}, status=409)
+    Activity.objects.create(board=board, actor=request.user, action="card updated", detail=card.title)
+    return JsonResponse({"id": card.id, "revision": card.revision, "archived": card.archived})
+
+
+@login_required
+def cards(request, board_id):
+    from django.db.models import Q
+    from .models import Card
+    board = get_board(request.user, board_id)
+    rows = Card.objects.filter(column__board=board, archived=request.GET.get("archived") == "1")
+    query = request.GET.get("q", "").strip()
+    if query:
+        rows = rows.filter(Q(title__icontains=query) | Q(description__icontains=query))
+    if request.GET.get("label"):
+        rows = rows.filter(labels__name=request.GET["label"])
+    items = [{"id": card.id, "title": card.title, "description": card.description,
+              "column_id": card.column_id, "position": card.position, "revision": card.revision,
+              "labels": [label.name for label in card.labels.all()],
+              "comments": [{"author": comment.author.username, "body": comment.body}
+                           for comment in card.comments.all()]} for card in rows.prefetch_related(
+                               "labels", "comments__author")[:200]]
+    return JsonResponse({"cards": items})

@@ -18,6 +18,7 @@ class Column(models.Model):
 
 
 class Card(models.Model):
+    archived = models.BooleanField(default=False)
     labels = models.ManyToManyField("Label", blank=True, related_name="cards")
     revision = models.PositiveIntegerField(default=0)
     column = models.ForeignKey(Column, related_name="cards", on_delete=models.CASCADE)
