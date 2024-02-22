@@ -1,7 +1,9 @@
 from django.urls import include, path
 from boards import api, views
+from boards.export import export_board
 
-urlpatterns = [path("api/cards/<int:card_id>/", api.card_update),
+urlpatterns = [path("boards/<int:board_id>/export/", export_board, name="export"),
+               path("api/cards/<int:card_id>/", api.card_update),
                path("api/boards/<int:board_id>/cards/", api.cards),
                path("api/cards/<int:card_id>/labels/", api.card_labels),
                path("api/boards/<int:board_id>/activity/", api.activity),
