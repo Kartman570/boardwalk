@@ -110,3 +110,50 @@ class OrderingTests(TestCase):
     def test_reorder(self):
         self.assertEqual(self.move(self.second, self.source).status_code, 200)
         self.assertEqual(list(self.source.cards.values_list("title", flat=True)), ["Second", "First"])
+
+
+class DetailsTests(TestCase):
+    def setUp(self):
+        from .services import add_card
+        self.user = get_user_model().objects.create_user("owner")
+        self.board = create_board(self.user, "Work")
+        self.column = self.board.columns.first()
+        self.card = add_card(self.column, "Fix shelf", "Use oak")
+        self.client.force_login(self.user)
+
+    def post(self, suffix, data):
+        return self.client.post("/api/cards/%s/%s" % (self.card.id, suffix), data,
+                                content_type="application/json")
+
+    def test_comment_and_activity(self):
+        self.assertEqual(self.post("comments/", {"body": "Measure first"}).status_code, 201)
+        self.assertEqual(self.card.comments.get().author, self.user)
+        response = self.client.get("/api/boards/%s/activity/" % self.board.id)
+        self.assertEqual(response.json()["activity"][0]["action"], "comment added")
+
+    def test_label_search(self):
+        self.assertEqual(self.post("labels/", {"labels": ["wood", "wood"]}).status_code, 200)
+        url = "/api/boards/%s/cards/" % self.board.id
+        self.assertEqual(len(self.client.get(url, {"label": "wood", "q": "oak"}).json()["cards"]), 1)
+        self.assertEqual(self.client.get(url, {"label": "metal"}).json()["cards"], [])
+
+    def test_archive_restore(self):
+        self.assertEqual(self.post("", {"archived": True, "revision": 0}).status_code, 200)
+        url = "/api/boards/%s/cards/" % self.board.id
+        self.assertEqual(self.client.get(url).json()["cards"], [])
+        self.assertEqual(len(self.client.get(url, {"archived": 1}).json()["cards"]), 1)
+        self.assertEqual(self.post("", {"archived": False, "revision": 1}).status_code, 200)
+
+    def test_edit_conflict(self):
+        self.assertEqual(self.post("", {"title": "New", "revision": 0}).status_code, 200)
+        self.assertEqual(self.post("", {"title": "Stale", "revision": 0}).status_code, 409)
+
+    def test_csv_formula_is_escaped(self):
+        self.card.title = "=SUM(A1)"
+        self.card.save()
+        response = self.client.get("/boards/%s/export/" % self.board.id)
+        self.assertIn("'=SUM(A1)", response.content.decode())
+
+    def test_failed_update_has_no_activity(self):
+        self.assertEqual(self.post("", {"title": "", "revision": 0}).status_code, 400)
+        self.assertEqual(self.board.activity.count(), 0)
