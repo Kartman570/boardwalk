@@ -1,3 +1,15 @@
-{% extends 'boards/base.html' %}{% block content %}<h1>{{ board.name }}</h1>
-<div class="columns">{% for column in board.columns.all %}<section class="column"><h2>{{ column.name }}</h2></section>{% endfor %}</div>
+{% extends 'boards/base.html' %}{% load static %}{% block content %}
+<h1>{{ board.name }}</h1><p><a href="{% url 'export' board.id %}">Export CSV</a></p>
+<p id="notice" role="status"></p><div hidden>{% csrf_token %}</div>
+<div class="columns">{% for column in columns %}<section class="column"><h2>{{ column.item.name }}</h2>
+{% if column.item.limit %}<p>Limit: {{ column.item.limit }}</p>{% endif %}
+{% for card in column.cards %}<article class="card" data-id="{{ card.id }}" data-revision="{{ card.revision }}">
+<h3>{{ card.title }}</h3><p>{{ card.description }}</p><p>{% for label in card.labels.all %}<small>{{ label.name }} </small>{% endfor %}</p>
+{% for comment in card.comments.all %}<p><strong>{{ comment.author.username }}</strong>: {{ comment.body }}</p>{% endfor %}
+{% if can_edit %}<select class="destination">{% for dest in columns %}<option value="{{ dest.item.id }}" {% if dest.item.id == column.item.id %}selected{% endif %}>{{ dest.item.name }}</option>{% endfor %}</select>
+<button type="button" class="move">Move to top</button><button type="button" class="archive">Archive</button>
+<form class="comment"><input name="body" maxlength="4000" required placeholder="Add a comment"><button>Comment</button></form>{% endif %}
+</article>{% empty %}<p>No cards.</p>{% endfor %}
+{% if can_edit %}<form class="new-card" data-column="{{ column.item.id }}"><input name="title" maxlength="160" required placeholder="Card title"><textarea name="description" maxlength="10000" placeholder="Description"></textarea><button>Add card</button></form>{% endif %}
+</section>{% endfor %}</div><script src="{% static 'boards/board.js' %}"></script>
 {% endblock %}
