@@ -157,3 +157,26 @@ class DetailsTests(TestCase):
     def test_failed_update_has_no_activity(self):
         self.assertEqual(self.post("", {"title": "", "revision": 0}).status_code, 400)
         self.assertEqual(self.board.activity.count(), 0)
+
+
+class DemoTests(TestCase):
+    def test_seed_is_idempotent(self):
+        from django.core.management import call_command
+        from .models import Card
+        call_command("seed_demo", password="local-demo-password", verbosity=0)
+        call_command("seed_demo", password="different-password", verbosity=0)
+        self.assertEqual(Board.objects.count(), 1)
+        self.assertEqual(Card.objects.count(), 4)
+        self.assertTrue(get_user_model().objects.get(username="demo").check_password(
+            "local-demo-password"))
+
+    def test_board_contains_actions_and_escapes_titles(self):
+        from .services import add_card
+        user = get_user_model().objects.create_user("owner")
+        board = create_board(user, "Home")
+        add_card(board.columns.first(), "<script>alert(1)</script>")
+        self.client.force_login(user)
+        response = self.client.get("/boards/%s/" % board.id)
+        self.assertContains(response, "Move to top")
+        self.assertContains(response, "&lt;script&gt;")
+        self.assertNotContains(response, "<script>alert")
