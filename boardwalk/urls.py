@@ -13,4 +13,6 @@ urlpatterns = [path("boards/<int:board_id>/export/", export_board, name="export"
                path("api/boards/<int:board_id>/members/", api.member_set),
                path("api/columns/<int:column_id>/cards/", api.card_create),
                path("", views.boards, name="boards"),
-               path("boards/<int:board_id>/", views.board, name="board"), path("health/", views.health), path("accounts/", include("django.contrib.auth.urls"))]
+               path("boards/<int:board_id>/", views.board, name="board"),
+               path("health/", views.health),
+               path("accounts/", include("django.contrib.auth.urls"))]

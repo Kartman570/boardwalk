@@ -44,7 +44,8 @@ def move_card(card, destination, position, revision):
     if type(position) is not int or position < 0:
         raise ValueError("Position must be a nonnegative integer")
     old_column = card.column_id
-    target = list(destination.cards.filter(archived=False).exclude(id=card.id).order_by("position", "id"))
+    target = list(destination.cards.filter(archived=False).exclude(
+        id=card.id).order_by("position", "id"))
     if position > len(target):
         raise ValueError("Position is beyond the end of the column")
     if destination.limit and len(target) >= destination.limit:

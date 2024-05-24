@@ -44,12 +44,12 @@ class AccessTests(TestCase):
     def test_editor_can_create(self):
         self.client.force_login(self.editor)
         self.assertEqual(self.client.post(self.url, {"title": "Card"},
-                                         content_type="application/json").status_code, 201)
+                                          content_type="application/json").status_code, 201)
 
     def test_viewer_cannot_create(self):
         self.client.force_login(self.viewer)
         self.assertEqual(self.client.post(self.url, {"title": "Card"},
-                                         content_type="application/json").status_code, 403)
+                                          content_type="application/json").status_code, 403)
         self.assertEqual(self.client.get("/boards/%s/" % self.board.id).status_code, 200)
 
     def test_outsider_cannot_read(self):
@@ -61,10 +61,10 @@ class AccessTests(TestCase):
         url = "/api/boards/%s/members/" % self.board.id
         self.client.force_login(self.editor)
         self.assertEqual(self.client.post(url, {"username": "outsider", "role": "editor"},
-                                         content_type="application/json").status_code, 403)
+                                          content_type="application/json").status_code, 403)
         self.client.force_login(self.owner)
         self.assertEqual(self.client.post(url, {"username": "outsider", "role": "viewer"},
-                                         content_type="application/json").status_code, 200)
+                                          content_type="application/json").status_code, 200)
         self.assertEqual(self.board.memberships.count(), 3)
 
 
@@ -109,7 +109,8 @@ class OrderingTests(TestCase):
 
     def test_reorder(self):
         self.assertEqual(self.move(self.second, self.source).status_code, 200)
-        self.assertEqual(list(self.source.cards.values_list("title", flat=True)), ["Second", "First"])
+        self.assertEqual(list(self.source.cards.values_list(
+            "title", flat=True)), ["Second", "First"])
 
 
 class DetailsTests(TestCase):
@@ -134,7 +135,8 @@ class DetailsTests(TestCase):
     def test_label_search(self):
         self.assertEqual(self.post("labels/", {"labels": ["wood", "wood"]}).status_code, 200)
         url = "/api/boards/%s/cards/" % self.board.id
-        self.assertEqual(len(self.client.get(url, {"label": "wood", "q": "oak"}).json()["cards"]), 1)
+        self.assertEqual(
+            len(self.client.get(url, {"label": "wood", "q": "oak"}).json()["cards"]), 1)
         self.assertEqual(self.client.get(url, {"label": "metal"}).json()["cards"], [])
 
     def test_archive_restore(self):
