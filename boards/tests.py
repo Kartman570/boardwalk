@@ -182,3 +182,35 @@ class DemoTests(TestCase):
         self.assertContains(response, "Move to top")
         self.assertContains(response, "&lt;script&gt;")
         self.assertNotContains(response, "<script>alert")
+
+
+class RequestTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("owner")
+        self.board = create_board(self.user, "Private")
+        self.url = "/api/columns/%s/cards/" % self.board.columns.first().id
+        self.client.force_login(self.user)
+
+    def test_invalid_json_shape(self):
+        response = self.client.post(self.url, "[]", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_bad_json(self):
+        response = self.client.post(self.url, "{", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_csrf_is_required(self):
+        from django.test import Client
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        self.assertEqual(client.post(self.url, {"title": "No token"},
+                                     content_type="application/json").status_code, 403)
+        client.get("/boards/%s/" % self.board.id)
+        token = client.cookies["csrftoken"].value
+        response = client.post(self.url, {"title": "With token"}, content_type="application/json",
+                               HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 201)
+
+    def test_anonymous_is_redirected(self):
+        self.client.logout()
+        self.assertEqual(self.client.get("/boards/%s/" % self.board.id).status_code, 302)
