@@ -4,6 +4,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "local-development-only-change-before-deploying")
 DEBUG = os.environ.get("DEBUG", "1") == "1"
+if not DEBUG and not os.environ.get("SECRET_KEY"):
+    raise RuntimeError("Set SECRET_KEY when DEBUG is disabled")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
 INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions",
                   "django.contrib.messages", "django.contrib.staticfiles", "boards"]

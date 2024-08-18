@@ -214,3 +214,16 @@ class RequestTests(TestCase):
     def test_anonymous_is_redirected(self):
         self.client.logout()
         self.assertEqual(self.client.get("/boards/%s/" % self.board.id).status_code, 302)
+
+    def test_non_text_card_values(self):
+        for payload in ({"title": None}, {"title": "Name", "description": []}):
+            self.assertEqual(self.client.post(self.url, payload,
+                                              content_type="application/json").status_code, 400)
+
+    def test_boolean_revision_is_not_an_integer(self):
+        from .services import add_card
+        card = add_card(self.board.columns.first(), "First")
+        response = self.client.post("/api/cards/%s/" % card.id,
+                                    {"title": "Changed", "revision": False},
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 409)
