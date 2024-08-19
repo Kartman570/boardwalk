@@ -123,11 +123,13 @@ def card_labels(request, data, card_id):
     board = get_board(request.user, card.column.board_id, write=True)
     names = data.get("labels", [])
     if (not isinstance(names, list) or len(names) > 12
-            or any(not isinstance(name, str) or not name.strip() or len(name) > 40 for name in names)):
+            or any(not isinstance(name, str) or not name.strip() or len(name) > 40
+                   for name in names)):
         raise ValueError("Use up to twelve nonempty label names of at most forty characters")
     labels = [Label.objects.get_or_create(board=board, name=name.strip())[0] for name in names]
     card.labels.set(labels)
-    Activity.objects.create(board=board, actor=request.user, action="labels changed", detail=card.title)
+    Activity.objects.create(board=board, actor=request.user,
+                            action="labels changed", detail=card.title)
     return JsonResponse({"labels": sorted({label.name for label in labels})})
 
 
@@ -143,7 +145,8 @@ def card_update(request, data, card_id):
         card = update_card(card, data)
     except Conflict as error:
         return JsonResponse({"error": str(error)}, status=409)
-    Activity.objects.create(board=board, actor=request.user, action="card updated", detail=card.title)
+    Activity.objects.create(board=board, actor=request.user,
+                            action="card updated", detail=card.title)
     return JsonResponse({"id": card.id, "revision": card.revision, "archived": card.archived})
 
 

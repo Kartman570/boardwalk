@@ -44,12 +44,12 @@ class AccessTests(TestCase):
     def test_editor_can_create(self):
         self.client.force_login(self.editor)
         self.assertEqual(self.client.post(self.url, {"title": "Card"},
-                                         content_type="application/json").status_code, 201)
+                                          content_type="application/json").status_code, 201)
 
     def test_viewer_cannot_create(self):
         self.client.force_login(self.viewer)
         self.assertEqual(self.client.post(self.url, {"title": "Card"},
-                                         content_type="application/json").status_code, 403)
+                                          content_type="application/json").status_code, 403)
         self.assertEqual(self.client.get("/boards/%s/" % self.board.id).status_code, 200)
 
     def test_outsider_cannot_read(self):
@@ -61,10 +61,10 @@ class AccessTests(TestCase):
         url = "/api/boards/%s/members/" % self.board.id
         self.client.force_login(self.editor)
         self.assertEqual(self.client.post(url, {"username": "outsider", "role": "editor"},
-                                         content_type="application/json").status_code, 403)
+                                          content_type="application/json").status_code, 403)
         self.client.force_login(self.owner)
         self.assertEqual(self.client.post(url, {"username": "outsider", "role": "viewer"},
-                                         content_type="application/json").status_code, 200)
+                                          content_type="application/json").status_code, 200)
         self.assertEqual(self.board.memberships.count(), 3)
 
 
@@ -109,7 +109,8 @@ class OrderingTests(TestCase):
 
     def test_reorder(self):
         self.assertEqual(self.move(self.second, self.source).status_code, 200)
-        self.assertEqual(list(self.source.cards.values_list("title", flat=True)), ["Second", "First"])
+        self.assertEqual(list(self.source.cards.values_list(
+            "title", flat=True)), ["Second", "First"])
 
 
 class DetailsTests(TestCase):
@@ -134,7 +135,8 @@ class DetailsTests(TestCase):
     def test_label_search(self):
         self.assertEqual(self.post("labels/", {"labels": ["wood", "wood"]}).status_code, 200)
         url = "/api/boards/%s/cards/" % self.board.id
-        self.assertEqual(len(self.client.get(url, {"label": "wood", "q": "oak"}).json()["cards"]), 1)
+        self.assertEqual(
+            len(self.client.get(url, {"label": "wood", "q": "oak"}).json()["cards"]), 1)
         self.assertEqual(self.client.get(url, {"label": "metal"}).json()["cards"], [])
 
     def test_archive_restore(self):
@@ -157,3 +159,71 @@ class DetailsTests(TestCase):
     def test_failed_update_has_no_activity(self):
         self.assertEqual(self.post("", {"title": "", "revision": 0}).status_code, 400)
         self.assertEqual(self.board.activity.count(), 0)
+
+
+class DemoTests(TestCase):
+    def test_seed_is_idempotent(self):
+        from django.core.management import call_command
+        from .models import Card
+        call_command("seed_demo", password="local-demo-password", verbosity=0)
+        call_command("seed_demo", password="different-password", verbosity=0)
+        self.assertEqual(Board.objects.count(), 1)
+        self.assertEqual(Card.objects.count(), 4)
+        self.assertTrue(get_user_model().objects.get(username="demo").check_password(
+            "local-demo-password"))
+
+    def test_board_contains_actions_and_escapes_titles(self):
+        from .services import add_card
+        user = get_user_model().objects.create_user("owner")
+        board = create_board(user, "Home")
+        add_card(board.columns.first(), "<script>alert(1)</script>")
+        self.client.force_login(user)
+        response = self.client.get("/boards/%s/" % board.id)
+        self.assertContains(response, "Move to top")
+        self.assertContains(response, "&lt;script&gt;")
+        self.assertNotContains(response, "<script>alert")
+
+
+class RequestTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("owner")
+        self.board = create_board(self.user, "Private")
+        self.url = "/api/columns/%s/cards/" % self.board.columns.first().id
+        self.client.force_login(self.user)
+
+    def test_invalid_json_shape(self):
+        response = self.client.post(self.url, "[]", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_bad_json(self):
+        response = self.client.post(self.url, "{", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_csrf_is_required(self):
+        from django.test import Client
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        self.assertEqual(client.post(self.url, {"title": "No token"},
+                                     content_type="application/json").status_code, 403)
+        client.get("/boards/%s/" % self.board.id)
+        token = client.cookies["csrftoken"].value
+        response = client.post(self.url, {"title": "With token"}, content_type="application/json",
+                               HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 201)
+
+    def test_anonymous_is_redirected(self):
+        self.client.logout()
+        self.assertEqual(self.client.get("/boards/%s/" % self.board.id).status_code, 302)
+
+    def test_non_text_card_values(self):
+        for payload in ({"title": None}, {"title": "Name", "description": []}):
+            self.assertEqual(self.client.post(self.url, payload,
+                                              content_type="application/json").status_code, 400)
+
+    def test_boolean_revision_is_not_an_integer(self):
+        from .services import add_card
+        card = add_card(self.board.columns.first(), "First")
+        response = self.client.post("/api/cards/%s/" % card.id,
+                                    {"title": "Changed", "revision": False},
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 409)
