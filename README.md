@@ -39,7 +39,7 @@ CSRF cookie and matching `X-CSRFToken` header. Send `Content-Type: application/j
 | POST | `/api/cards/ID/move/` | `revision`, `column_id`, zero-based `position` |
 | POST | `/api/cards/ID/comments/` | `body` |
 | POST | `/api/cards/ID/labels/` | `labels`: array of names |
-| POST | `/api/columns/ID/limit/` | `limit`: integer, zero means unlimited |
+| POST | `/api/columns/ID/limit/` | `limit`: integer from 0 to 10000, zero means unlimited |
 | POST | `/api/boards/ID/members/` | Existing `username`, `role`: editor, viewer or remove |
 
 Read the revision from the card list before moving or editing. A stale revision

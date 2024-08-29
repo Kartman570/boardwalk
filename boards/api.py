@@ -84,8 +84,8 @@ def column_limit(request, data, column_id):
     column = get_object_or_404(Column, id=column_id)
     get_board(request.user, column.board_id, write=True)
     limit = data.get("limit")
-    if type(limit) is not int or limit < 0:
-        raise ValueError("Limit must be a nonnegative integer")
+    if type(limit) is not int or not 0 <= limit <= 10000:
+        raise ValueError("Limit must be an integer between zero and ten thousand")
     column.limit = limit
     column.save(update_fields=["limit"])
     return JsonResponse({"id": column.id, "limit": limit})

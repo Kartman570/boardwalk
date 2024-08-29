@@ -227,3 +227,14 @@ class RequestTests(TestCase):
                                     {"title": "Changed", "revision": False},
                                     content_type="application/json")
         self.assertEqual(response.status_code, 409)
+
+    def test_column_limit_rejects_oversized_integer(self):
+        column = self.board.columns.first()
+        url = "/api/columns/%s/limit/" % column.id
+        for value in (9223372036854775808, 10001, -1, True):
+            response = self.client.post(url, {"limit": value}, content_type="application/json")
+            self.assertEqual(response.status_code, 400)
+        column.refresh_from_db()
+        self.assertEqual(column.limit, 0)
+        self.assertEqual(self.client.post(url, {"limit": 10000},
+                                          content_type="application/json").status_code, 200)
