@@ -39,7 +39,7 @@ CSRF cookie and matching `X-CSRFToken` header. Send `Content-Type: application/j
 | POST | `/api/cards/ID/move/` | `revision`, `column_id`, zero-based `position` |
 | POST | `/api/cards/ID/comments/` | `body` |
 | POST | `/api/cards/ID/labels/` | `labels`: array of names |
-| POST | `/api/columns/ID/limit/` | `limit`: integer, zero means unlimited |
+| POST | `/api/columns/ID/limit/` | `limit`: integer from 0 to 10000, zero means unlimited |
 | POST | `/api/boards/ID/members/` | Existing `username`, `role`: editor, viewer or remove |
 
 Read the revision from the card list before moving or editing. A stale revision
@@ -83,3 +83,52 @@ high write contention can produce a database-locked error. Labels and membership
 changes use last-write-wins semantics. There are no attachments, email invites,
 due dates, realtime updates or public sharing. Search and management beyond the
 basic board workflow are API-only. Activity is ordered by sequence number.
+
+## Optional Redis sessions
+
+Session reads can use Redis while SQLite remains the durable session store.
+Board membership and card permissions are always read from the database; they are
+not cached. Evicted session keys are restored from the database on the next read.
+Logout removes the session from both stores.
+
+```sh
+pip install -r requirements-redis.txt
+REDIS_URL=redis://127.0.0.1:6379/0 python manage.py runserver
+```
+
+Without `REDIS_URL`, the application continues to use ordinary database sessions.
+With it set, Redis must be reachable. Database fallback handles cache misses, not
+a Redis outage: this Django backend can fail a request if Redis cannot accept a
+cache write. Connection and socket timeouts are two seconds. Do not expose the
+Redis port publicly or share its database with untrusted applications.
+
+For the optional Compose setup, use both files for each command:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.redis.yml build
+docker compose -f docker-compose.yml -f docker-compose.redis.yml run --rm web python manage.py migrate
+docker compose -f docker-compose.yml -f docker-compose.redis.yml up
+```
+
+The Redis service is reachable only inside the Compose network. Redis persistence
+is disabled because sessions are also written to SQLite.
+
+Integration tests require a running Redis instance and the optional dependencies:
+
+```sh
+TEST_REDIS_URL=redis://127.0.0.1:6379/1 make redis-test
+```
+
+Tests use randomly prefixed keys and remove only those keys. They verify real
+cache hits without session database queries, eviction recovery, logout and board
+permission revocation. They are skipped by the ordinary test run when no test
+Redis URL is supplied.
+
+To check configured connectivity without touching existing sessions:
+
+```sh
+REDIS_URL=redis://127.0.0.1:6379/0 python manage.py check_session_cache
+```
+
+The command writes, reads and removes a unique short-lived test key. It reports
+only success or an error, never the Redis URL or credentials.
