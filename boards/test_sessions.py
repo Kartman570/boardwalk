@@ -79,3 +79,11 @@ class RedisSessionTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 200)
         membership.delete()
         self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_cache_diagnostic_command(self):
+        from io import StringIO
+        from django.core.management import call_command
+        output = StringIO()
+        call_command("check_session_cache", stdout=output)
+        self.assertEqual(output.getvalue().strip(), "Session cache is ready")
+        self.assertEqual(list(self.redis.scan_iter(match=self.prefix + ":*")), [])

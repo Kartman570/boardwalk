@@ -123,3 +123,12 @@ Tests use randomly prefixed keys and remove only those keys. They verify real
 cache hits without session database queries, eviction recovery, logout and board
 permission revocation. They are skipped by the ordinary test run when no test
 Redis URL is supplied.
+
+To check configured connectivity without touching existing sessions:
+
+```sh
+REDIS_URL=redis://127.0.0.1:6379/0 python manage.py check_session_cache
+```
+
+The command writes, reads and removes a unique short-lived test key. It reports
+only success or an error, never the Redis URL or credentials.
